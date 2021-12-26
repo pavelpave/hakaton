@@ -1,24 +1,80 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { useRef, useEffect } from "react";
+import "./App.css";
+import "@tensorflow/tfjs-core";
+import "@tensorflow/tfjs-converter";
+import "@tensorflow/tfjs-backend-webgl";
+import * as faceLandmarksDetection from "@tensorflow-models/face-landmarks-detection";
+import Webcam from "react-webcam";
+// import { MediaPipeFaceMesh } from "@tensorflow-models/face-landmarks-detection/dist/types";
+import { draw } from "./mask";
 
 function App() {
+  const webcam = useRef<Webcam>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+
+  const runFaceDetect = async () => {
+    const model = await faceLandmarksDetection.load(
+      faceLandmarksDetection.SupportedPackages.mediapipeFacemesh
+    );
+    detect(model);
+  };
+
+  const detect = async (model: any) => {
+    if (webcam.current && canvas.current) {
+      const webcamCurrent = webcam.current as any;
+      if (webcamCurrent.video.readyState === 4) {
+        const video = webcamCurrent.video;
+        const videoWidth = webcamCurrent.video.videoWidth;
+        const videoHeight = webcamCurrent.video.videoHeight;
+        canvas.current.width = videoWidth;
+        canvas.current.height = videoHeight;
+        const predictions = await model.estimateFaces({
+          input: video,
+        });
+        const ctx = canvas.current.getContext("2d") as CanvasRenderingContext2D;
+        requestAnimationFrame(() => {
+          draw(predictions, ctx, videoWidth, videoHeight);
+        });
+        detect(model);
+      }
+    }
+  };
+
+  useEffect(() => {
+    runFaceDetect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [webcam.current?.video?.readyState])
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+      <header className="header">
+        <div className="title">face mask App</div>
       </header>
+      <Webcam
+        audio={false}
+        ref={webcam}
+        style={{
+          position: "absolute",
+          margin: "auto",
+          textAlign: "center",
+          top: 100,
+          left: 0,
+          right: 0,
+          zIndex: 9,
+        }}
+      />
+      <canvas
+        ref={canvas}
+        style={{
+          position: "absolute",
+          margin: "auto",
+          textAlign: "center",
+          top: 100,
+          left: 0,
+          right: 0,
+          zIndex: 9,
+        }}
+      />
     </div>
   );
 }
